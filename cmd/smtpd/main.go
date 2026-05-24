@@ -3,16 +3,15 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"go.uber.org/zap"
-	"turscar.ie/smtpd"
+	"log/slog"
+	"os"
+
+	"go.turscar.ie/smtpd"
 )
 
 func main() {
 	ctx := context.Background()
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		panic(err)
-	}
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	cert, err := tls.LoadX509KeyPair("snakeoil.crt", "snakeoil.key")
 	if err != nil {
 		panic(err)

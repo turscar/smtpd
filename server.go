@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
+	"log/slog"
 	"net"
 	"os"
 	"sync"
@@ -23,7 +23,7 @@ func (e SMTPError) Error() string {
 type Server struct {
 	sync.Mutex
 	listeners    []net.Listener
-	Logger       *zap.Logger
+	Logger       *slog.Logger
 	shutdown     chan struct{}
 	Hostname     string
 	Appname      string
@@ -35,7 +35,7 @@ type Server struct {
 	WaitGroup    sync.WaitGroup
 }
 
-func New(logger *zap.Logger) *Server {
+func New(logger *slog.Logger) *Server {
 	s := &Server{
 		listeners: nil,
 		Logger:    logger,
@@ -44,7 +44,7 @@ func New(logger *zap.Logger) *Server {
 	h, err := os.Hostname()
 	if err != nil {
 		s.Hostname = "unknown.hostname"
-		s.Logger.Error("failed to retrieve hostname", zap.Error(err))
+		s.Logger.Error("failed to retrieve hostname", slog.String("error", err.Error()))
 	}
 	s.Hostname = h
 	return s
@@ -68,7 +68,7 @@ func (s *Server) Listen(ctx context.Context, network, address string) error {
 		for {
 			conn, err := l.Accept()
 			if err != nil {
-				s.Logger.Error("accept failed", zap.Error(err), zap.String("address", l.Addr().String()))
+				s.Logger.Error("accept failed", slog.String("error", err.Error()), slog.String("address", l.Addr().String()))
 				return
 			}
 			s.Lock()
@@ -95,7 +95,7 @@ func (s *Server) Serve(listeners []net.Listener) {
 				conn, err := l.Accept()
 				if err != nil {
 					if !errors.Is(err, net.ErrClosed) {
-						s.Logger.Error("accept failed", zap.Error(err), zap.String("address", l.Addr().String()))
+						s.Logger.Error("accept failed", slog.String("error", err.Error()), slog.String("address", l.Addr().String()))
 					}
 					return
 				}

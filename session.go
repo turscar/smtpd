@@ -7,8 +7,8 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
+	"log/slog"
 	"net"
 	"regexp"
 	"strings"
@@ -23,7 +23,7 @@ type Session struct {
 	br       *bufio.Reader
 	bw       *bufio.Writer
 
-	logger    *zap.Logger
+	logger    *slog.Logger
 	env       Envelope
 	Hello     string
 	Hostname  string
@@ -49,7 +49,7 @@ func (s *Server) newSession(c net.Conn) *Session {
 		rwc:       c,
 		br:        bufio.NewReader(c),
 		bw:        bufio.NewWriter(c),
-		logger:    s.Logger.With(zap.String("local", c.LocalAddr().String()), zap.String("remote", c.RemoteAddr().String())),
+		logger:    s.Logger.With(slog.String("local", c.LocalAddr().String()), slog.String("remote", c.RemoteAddr().String())),
 		TLSConfig: s.TLSConfig.Clone(),
 		ID:        s.sessionID.Add(1),
 	}
@@ -73,7 +73,7 @@ func (s *Session) Serve() {
 	defer func(conn net.Conn) {
 		err := conn.Close()
 		if err != nil {
-			s.logger.Error("while closing connection", zap.Error(err))
+			s.logger.Error("while closing connection", slog.String("error", err.Error()))
 		}
 	}(s.rwc)
 
@@ -90,7 +90,7 @@ func (s *Session) Serve() {
 		sl, err := s.br.ReadString('\n')
 		if err != nil {
 			if !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) {
-				s.logger.Info("read error", zap.Error(err))
+				s.logger.Info("read error", slog.String("error", err.Error()))
 			}
 			break
 		}
@@ -246,7 +246,7 @@ func (s *Session) handleData() error {
 	for {
 		sl, err := s.br.ReadSlice('\n')
 		if err != nil {
-			s.logger.Info("read error", zap.Error(err))
+			s.logger.Info("read error", slog.String("error", err.Error()))
 			return ErrorClose{err: err}
 		}
 		if bytes.Equal(sl, []byte(".\r\n")) {
@@ -296,18 +296,18 @@ func (s *Session) sendline(line string) {
 	if s.srv.WriteTimeout != 0 {
 		err := s.rwc.SetWriteDeadline(time.Now().Add(s.srv.WriteTimeout))
 		if err != nil {
-			s.logger.Error("failed to set write deadline", zap.Error(err))
+			s.logger.Error("failed to set write deadline", slog.String("error", err.Error()))
 		}
 	}
 	s.srv.Hooks.LineWritten(s, line)
 	fullLine := line + "\r\n"
 	_, err := s.bw.WriteString(fullLine)
 	if err != nil {
-		s.logger.Error("failed to write response", zap.Error(err))
+		s.logger.Error("failed to write response", slog.String("error", err.Error()))
 	}
 	err = s.bw.Flush()
 	if err != nil {
-		s.logger.Error("failed to flush response", zap.Error(err))
+		s.logger.Error("failed to flush response", slog.String("error", err.Error()))
 	}
 }
 
@@ -318,8 +318,7 @@ func (s *Session) sendlines(lines []string) {
 }
 
 func (s *Session) sendSMTPError(err error, deflt string) {
-	var se SMTPError
-	if errors.As(err, &se) {
+	if se, ok := errors.AsType[SMTPError](err); ok {
 		s.sendline(se.Error())
 		return
 	}

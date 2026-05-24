@@ -1,7 +1,7 @@
 package smtpd
 
 import (
-	"go.uber.org/zap"
+	"log/slog"
 	"strings"
 )
 
@@ -42,8 +42,8 @@ var _ Envelope = &BasicEnvelope{}
 // AddRecipient adds a recipient from a RCPT TO
 func (e *BasicEnvelope) AddRecipient(rcpt MailAddress) error {
 	e.session.logger.Info("recipient",
-		zap.String("lhs", rcpt.Local()),
-		zap.String("rhs", rcpt.Hostname()))
+		slog.String("lhs", rcpt.Local()),
+		slog.String("rhs", rcpt.Hostname()))
 
 	e.rcpts = append(e.rcpts, rcpt)
 	return nil
